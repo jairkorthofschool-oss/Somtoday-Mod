@@ -32,6 +32,12 @@ final class WebViewHostViewController: UIViewController {
         setupWebView()
         setupSkeleton()
         webView.load(URLRequest(url: Self.startURL))
+        // Safety net: never leave the skeleton on screen forever; reveal the
+        // actual webview content (or error overlay) after a while
+        DispatchQueue.main.asyncAfter(deadline: .now() + 15) { [weak self] in
+            guard let self = self, self.errorOverlay == nil else { return }
+            self.hideSkeleton()
+        }
     }
 
     deinit {
@@ -138,7 +144,7 @@ final class WebViewHostViewController: UIViewController {
 
     // MARK: Error handling (spinner overlay, like the Android app)
 
-    private func showErrorOverlay() {
+    private func showErrorOverlay(message: String) {
         guard errorOverlay == nil else { return }
         hideSkeleton()
 
@@ -152,7 +158,7 @@ final class WebViewHostViewController: UIViewController {
         overlay.addSubview(spinner)
 
         let label = UILabel()
-        label.text = "Geen verbinding — tik om opnieuw te proberen"
+        label.text = "Geen verbinding — tik om opnieuw te proberen\n(\(message))"
         label.textAlignment = .center
         label.numberOfLines = 0
         label.font = .preferredFont(forTextStyle: .callout)
@@ -284,7 +290,7 @@ extension WebViewHostViewController: WKNavigationDelegate {
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-        handleLoadFailure()
+        handleLoadFailure(error)
     }
 
     func webView(
@@ -292,10 +298,10 @@ extension WebViewHostViewController: WKNavigationDelegate {
         didFailProvisionalNavigation navigation: WKNavigation!,
         withError error: Error
     ) {
-        handleLoadFailure()
+        handleLoadFailure(error)
     }
 
-    private func handleLoadFailure() {
+    private func handleLoadFailure(_ error: Error) {
         webView.scrollView.refreshControl?.endRefreshing()
         // Retry a few times while the skeleton is still showing, then fall
         // back to a spinner overlay, like the Android app
@@ -306,7 +312,7 @@ extension WebViewHostViewController: WKNavigationDelegate {
                 self.webView.load(URLRequest(url: Self.startURL))
             }
         } else {
-            showErrorOverlay()
+            showErrorOverlay(message: error.localizedDescription)
         }
     }
 }
