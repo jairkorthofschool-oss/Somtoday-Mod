@@ -1,0 +1,7 @@
+builds/
+vendor/
+*/app/release/
+*/.idea/
+*.zip
+*.apk
+.vscode

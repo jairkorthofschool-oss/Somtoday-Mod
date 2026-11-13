@@ -1,0 +1,38 @@
+name: iOS IPA
+
+# Builds the unsigned Somtoday Mod IPA on a macOS runner so no local Mac
+# is required. Download the artifact from the workflow run page and install
+# it with TrollStore.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'iOS/**'
+      - 'Chromium/**'
+      - '.github/workflows/ios.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Regenerate the mod bundle from the extension sources when esbuild is
+      # available; on failure the committed bundle in iOS/SomtodayMod/Resources
+      # is used instead.
+      - name: Regenerate mod bundle
+        continue-on-error: true
+        run: python3 iOS/tools/generate_ios_bundle.py Chromium
+
+      - name: Build IPA
+        run: ./iOS/build_ipa.sh
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: SomtodayMod-IPA
+          path: iOS/build/SomtodayMod.ipa
+          if-no-files-found: error
