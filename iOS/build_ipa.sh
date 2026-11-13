@@ -16,6 +16,10 @@ APP_NAME="SomtodayMod"
 rm -rf "$BUILD_DIR"
 mkdir -p "$BUILD_DIR"
 
+# Some Xcode versions return a nonzero exit code even after printing
+# BUILD SUCCEEDED (e.g. for unsigned builds). We therefore judge success by
+# whether the .app bundle was produced, not by the exit code.
+XCODEBUILD_EXIT=0
 xcodebuild \
     -project "$APP_NAME.xcodeproj" \
     -target "$APP_NAME" \
@@ -26,7 +30,11 @@ xcodebuild \
     CODE_SIGN_IDENTITY="" \
     CODE_SIGN_ENTITLEMENTS="" \
     CONFIGURATION_BUILD_DIR="$BUILD_DIR" \
-    clean build
+    clean build || XCODEBUILD_EXIT=$?
+echo "xcodebuild exit code: $XCODEBUILD_EXIT"
+if [ "$XCODEBUILD_EXIT" -ne 0 ]; then
+    echo "Warning: xcodebuild returned nonzero; continuing based on produced files" >&2
+fi
 
 echo "Build finished, locating $APP_NAME.app..."
 # With CONFIGURATION_BUILD_DIR the .app lands in $BUILD_DIR itself; without
