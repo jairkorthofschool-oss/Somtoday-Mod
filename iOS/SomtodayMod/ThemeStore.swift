@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 /// Stores the Somtoday Mod theme that the injected script reports, so the
 /// skeleton loading screen of the next launch matches the chosen theme.

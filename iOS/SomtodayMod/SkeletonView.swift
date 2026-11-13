@@ -1,4 +1,5 @@
 import SwiftUI
+import WebKit
 
 /// Native loading screen shown while Somtoday loads inside the WKWebView.
 /// Loads the same skeleton HTML files as the Android-GeckoView app.

@@ -311,6 +311,10 @@ extension WebViewHostViewController: WKNavigationDelegate {
 // MARK: UI (file upload, javascript dialogs, popups)
 
 extension WebViewHostViewController: WKUIDelegate {
+    // In recent SDKs this API is annotated iOS 18.4+; the annotation only
+    // affects compilation. At runtime the ObjC selector exists on older iOS
+    // versions too, so file uploads keep working on iOS 15.
+    @available(iOS 18.4, *)
     func webView(
         _ webView: WKWebView,
         runOpenPanelWith parameters: WKOpenPanelParameters,
