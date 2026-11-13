@@ -14,7 +14,10 @@ which re-signs the app itself, so no Apple Developer account is needed.
   inlined and all images/fonts embedded as base64 data URIs (`platform: 'iOS'`).
 - The native shell (`SomtodayMod/`) is a thin WKWebView host:
   - injects the bundle as a `WKUserScript` at document end
-  - spoofs a desktop Chrome user agent (like the Android app)
+  - uses a mobile Safari user agent: the iOS 15 WebKit engine cannot run the
+    desktop site's modern JavaScript (which is why the desktop user agent of
+    the Android apps is not used here); Somtoday Mod also ships as a Safari
+    userscript, so the mobile layout is fully supported
   - opens links outside Somtoday in Safari
   - shows the same skeleton loading screens as the Android-GeckoView app
   - receives the chosen theme via a `somtodaymod` script message handler

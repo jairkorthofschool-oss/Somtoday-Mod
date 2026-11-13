@@ -11,8 +11,11 @@ import WebKit
 /// - spinner overlay with tap-to-retry when the site cannot be reached
 final class WebViewHostViewController: UIViewController {
     private static let startURL = URL(string: "https://leerling.somtoday.nl/")!
+    // Use a mobile Safari user agent: iOS 15's WebKit cannot run the desktop
+    // site's modern JavaScript, and Somtoday Mod officially supports Safari
+    // on iOS via the userscript, so the mobile layout + mod work fine.
     private static let userAgent =
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 15_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.6 Mobile/15E148 Safari/604.1"
     private static let maxLoadRetries = 3
 
     private var webView: WKWebView!
