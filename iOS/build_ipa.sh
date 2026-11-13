@@ -28,11 +28,19 @@ xcodebuild \
     CONFIGURATION_BUILD_DIR="$BUILD_DIR" \
     clean build
 
-APP_PATH="$BUILD_DIR/Release-iphoneos/$APP_NAME.app"
+echo "Build finished, locating $APP_NAME.app..."
+# With CONFIGURATION_BUILD_DIR the .app lands in $BUILD_DIR itself; without
+# it, Xcode puts it in $BUILD_DIR/Release-iphoneos. Support both.
+APP_PATH="$BUILD_DIR/$APP_NAME.app"
 if [ ! -d "$APP_PATH" ]; then
-    echo "Error: $APP_PATH was not produced by xcodebuild" >&2
+    APP_PATH="$BUILD_DIR/Release-iphoneos/$APP_NAME.app"
+fi
+if [ ! -d "$APP_PATH" ]; then
+    echo "Error: $APP_NAME.app was not produced by xcodebuild" >&2
+    ls -la "$BUILD_DIR" >&2 || true
     exit 1
 fi
+echo "Found app bundle at $APP_PATH"
 
 rm -rf "$BUILD_DIR/Payload"
 mkdir -p "$BUILD_DIR/Payload"
@@ -42,6 +50,9 @@ cd "$BUILD_DIR"
 rm -f SomtodayMod.ipa
 zip -qry SomtodayMod.ipa Payload
 cd ..
+
+echo "Created $(pwd)/$BUILD_DIR/SomtodayMod.ipa:"
+ls -la "$BUILD_DIR/SomtodayMod.ipa"
 
 echo ""
 echo "Done: $(pwd)/$BUILD_DIR/SomtodayMod.ipa"
