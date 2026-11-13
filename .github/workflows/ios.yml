@@ -12,6 +12,15 @@ on:
       - 'Chromium/**'
       - '.github/workflows/ios.yml'
   workflow_dispatch:
+  # macOS hosted runners are often saturated; keep retrying automatically
+  # until a build succeeds (the IPA is uploaded as an artifact).
+  schedule:
+    - cron: '*/30 * * * *'
+
+# Never run more than one attempt at a time
+concurrency:
+  group: ios-ipa
+  cancel-in-progress: true
 
 jobs:
   build:
