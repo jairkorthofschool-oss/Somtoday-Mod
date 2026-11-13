@@ -49,7 +49,6 @@
 			isa = PBXGroup;
 			children = (
 				1A2B3C4D000000000000000000000003 /* SomtodayMod */,
-				1A2B3C4D000000000000000000000005 /* Resources */,
 				1A2B3C4D000000000000000000000006 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -63,6 +62,7 @@
 				1A2B3C4D000000000000000000000103 /* SkeletonView.swift */,
 				1A2B3C4D000000000000000000000104 /* ThemeStore.swift */,
 				1A2B3C4D000000000000000000000115 /* Assets.xcassets */,
+				1A2B3C4D000000000000000000000005 /* Resources */,
 				1A2B3C4D000000000000000000000106 /* Info.plist */,
 			);
 			path = SomtodayMod;
