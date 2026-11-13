@@ -15,6 +15,6 @@ workflows:
       - name: Regenerate mod bundle
         script: python3 iOS/tools/generate_ios_bundle.py Chromium || true
       - name: Build unsigned IPA
-        script: ./iOS/build_ipa.sh
+        script: bash iOS/build_ipa.sh
     artifacts:
       - iOS/build/SomtodayMod.ipa
