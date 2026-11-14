@@ -4,19 +4,20 @@ import WebKit
 
 /// Loads leerling.somtoday.nl in a WKWebView and injects the Somtoday Mod
 /// bundle, mirroring the Android-WebView app behaviour:
-/// - desktop user agent
+/// - the device's real mobile Safari user agent
 /// - mod script injected at document end
 /// - external links opened outside the webview
 /// - skeleton loading screen until Somtoday has loaded
 /// - spinner overlay with tap-to-retry when the site cannot be reached
+/// - automatic recovery when iOS kills the WebView rendering process
 final class WebViewHostViewController: UIViewController {
     private static let startURL = URL(string: "https://leerling.somtoday.nl/")!
-    // Use a mobile Safari user agent: iOS 15's WebKit cannot run the desktop
-    // site's modern JavaScript, and Somtoday Mod officially supports Safari
-    // on iOS via the userscript, so the mobile layout + mod work fine.
-    private static let userAgent =
-        "Mozilla/5.0 (iPhone; CPU iPhone OS 15_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.6 Mobile/15E148 Safari/604.1"
+    // No custom user agent: WKWebView already uses the mobile Safari user
+    // agent of the device's actual iOS version. Pinning a fake version makes
+    // the server send JavaScript that does not match the WebKit engine on the
+    // device, which shows up as a blank/grey screen.
     private static let maxLoadRetries = 3
+    private static let maxBlankRecoveries = 2
 
     private var webView: WKWebView!
     private var progressView: UIProgressView!
@@ -25,12 +26,16 @@ final class WebViewHostViewController: UIViewController {
     private var progressObservation: NSKeyValueObservation?
     private var pendingOpenPanelCompletion: (([URL]?) -> Void)?
     private var loadRetryCount = 0
+    private var blankRecoveryCount = 0
+    private var lastLoadActivity = Date()
+    private var watchdogTimer: Timer?
 
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .systemBackground
         setupWebView()
         setupSkeleton()
+        startWatchdog()
         webView.load(URLRequest(url: Self.startURL))
         // Safety net: never leave the skeleton on screen forever; reveal the
         // actual webview content (or error overlay) after a while
@@ -42,6 +47,7 @@ final class WebViewHostViewController: UIViewController {
 
     deinit {
         progressObservation?.invalidate()
+        watchdogTimer?.invalidate()
     }
 
     // MARK: Setup
@@ -63,7 +69,6 @@ final class WebViewHostViewController: UIViewController {
         configuration.userContentController = contentController
 
         webView = WKWebView(frame: .zero, configuration: configuration)
-        webView.customUserAgent = Self.userAgent
         webView.navigationDelegate = self
         webView.uiDelegate = self
         webView.allowsBackForwardNavigationGestures = true
@@ -126,6 +131,47 @@ final class WebViewHostViewController: UIViewController {
             controller.view.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
         skeletonController = controller
+    }
+
+    // MARK: Blank-screen watchdog
+
+    /// iOS kills the WebContent process of WKWebViews at unfortunate moments
+    /// (memory pressure, app in background, view not yet visible). When that
+    /// happens before the first render the webview stays blank/grey forever
+    /// and iOS usually does not call any delegate callback. A watchdog detects
+    /// a webview that finished loading without any content and recovers it.
+    private func startWatchdog() {
+        watchdogTimer = Timer.scheduledTimer(
+            withTimeInterval: 3,
+            repeats: true
+        ) { [weak self] _ in
+            self?.checkWebViewAlive()
+        }
+    }
+
+    private func checkWebViewAlive() {
+        guard errorOverlay == nil, !webView.isLoading else { return }
+        // Only act when a load finished recently but produced no page title
+        guard let url = webView.url, url.absoluteString != "about:blank" else { return }
+        guard Date().timeIntervalSince(lastLoadActivity) > 5 else { return }
+        let title = webView.title ?? ""
+        if title.isEmpty {
+            recoverWebView(reason: "pagina bleef leeg")
+        }
+    }
+
+    /// Reload after the WebContent process died or the page stayed blank; give
+    /// up after a few attempts so the user gets the tappable error overlay
+    /// instead of a silent grey screen.
+    private func recoverWebView(reason: String) {
+        if blankRecoveryCount < Self.maxBlankRecoveries {
+            blankRecoveryCount += 1
+            lastLoadActivity = Date()
+            hideSkeleton()
+            webView.reload()
+        } else {
+            showErrorOverlay(message: "\(reason) — tik om opnieuw te proberen")
+        }
     }
 
     // MARK: Skeleton handling
@@ -194,7 +240,9 @@ final class WebViewHostViewController: UIViewController {
 
     @objc private func errorOverlayTapped() {
         loadRetryCount = 0
+        blankRecoveryCount = 0
         hideErrorOverlay()
+        lastLoadActivity = Date()
         webView.reload()
     }
 
@@ -280,11 +328,17 @@ extension WebViewHostViewController: WKNavigationDelegate {
         progressView.setProgress(0, animated: false)
         loadRetryCount = 0
         hideErrorOverlay()
+        lastLoadActivity = Date()
 
         if isSomtodayURL(webView.url) {
             // Small delay so the skeleton does not flash (same as GeckoView)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-                self?.hideSkeleton()
+                guard let self = self, self.errorOverlay == nil else { return }
+                self.hideSkeleton()
+                // A finished load with a page title means the webview works
+                if let title = webView.title, !title.isEmpty {
+                    self.blankRecoveryCount = 0
+                }
             }
         }
     }
@@ -301,6 +355,11 @@ extension WebViewHostViewController: WKNavigationDelegate {
         handleLoadFailure(error)
     }
 
+    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        webView.scrollView.refreshControl?.endRefreshing()
+        recoverWebView(reason: "WebWeergave is door iOS gestopt")
+    }
+
     private func handleLoadFailure(_ error: Error) {
         webView.scrollView.refreshControl?.endRefreshing()
         // Retry a few times while the skeleton is still showing, then fall
@@ -309,6 +368,7 @@ extension WebViewHostViewController: WKNavigationDelegate {
             loadRetryCount += 1
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
                 guard let self = self, self.errorOverlay == nil else { return }
+                self.lastLoadActivity = Date()
                 self.webView.load(URLRequest(url: Self.startURL))
             }
         } else {
